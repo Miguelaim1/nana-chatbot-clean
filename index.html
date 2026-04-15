@@ -55,7 +55,7 @@
   </style>
 </head>
 <body>
-  <h2>TEST VERSION 3 🌸</h2>
+  <h2>TEST VERSION 4 🌸</h2>
   <p>Speak in simple English. Nana will answer in short English.</p>
 
   <div id="chat"></div>
@@ -79,6 +79,11 @@
     const sendButton = document.getElementById("sendButton");
     const micButton = document.getElementById("micButton");
     const stopVoiceButton = document.getElementById("stopVoiceButton");
+
+function playAudio(base64Audio) {
+  const audio = new Audio("data:audio/mp3;base64," + base64Audio);
+  audio.play();
+}
 
     function escapeHtml(text) {
       const div = document.createElement("div");
@@ -116,21 +121,20 @@
           return;
         }
 
-        const reply = data.reply || "No reply generated.";
-        addChatLine("Nana:", reply);
-        speakText(reply);
-        statusBox.textContent = "Nana replied.";
+const reply = data.reply || "No reply generated.";
+addChatLine("Nana:", reply);
+
+if (data.audio) {
+  playAudio(data.audio);
+}
+
+statusBox.textContent = "Nana replied.";
       } catch (error) {
         addChatLine("Error:", error.message);
         statusBox.textContent = "Network error.";
       }
     }
 
-    function speakText(text) {
-      if (!("speechSynthesis" in window)) {
-        statusBox.textContent = "Text-to-speech not supported.";
-        return;
-      }
 
       window.speechSynthesis.cancel();
 
