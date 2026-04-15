@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nana Chatbot</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 700px;
+      max-width: 720px;
       margin: 40px auto;
       padding: 0 16px;
       line-height: 1.5;
@@ -17,7 +17,7 @@
       border: 1px solid #ccc;
       border-radius: 8px;
       padding: 16px;
-      min-height: 250px;
+      min-height: 260px;
       margin-bottom: 12px;
       background: #fafafa;
       overflow-y: auto;
@@ -55,19 +55,19 @@
   </style>
 </head>
 <body>
-  <h2>TEST VERSION 4 🌸</h2>
+  <h2>Nana Chatbot 4🌸</h2>
   <p>Speak in simple English. Nana will answer in short English.</p>
 
   <div id="chat"></div>
 
   <div class="row">
     <input id="input" type="text" placeholder="Type here..." />
-    <button id="sendButton">Send</button>
+    <button id="sendButton" type="button">Send</button>
   </div>
 
   <div class="row">
-    <button id="micButton">🎤 Start speaking</button>
-    <button id="stopVoiceButton">🔇 Stop voice</button>
+    <button id="micButton" type="button">🎤 Start speaking</button>
+    <button id="stopVoiceButton" type="button">🔇 Stop voice</button>
   </div>
 
   <div id="status">Ready.</div>
@@ -80,10 +80,8 @@
     const micButton = document.getElementById("micButton");
     const stopVoiceButton = document.getElementById("stopVoiceButton");
 
-function playAudio(base64Audio) {
-  const audio = new Audio("data:audio/mp3;base64," + base64Audio);
-  audio.play();
-}
+    let currentAudio = null;
+    let isSending = false;
 
     function escapeHtml(text) {
       const div = document.createElement("div");
@@ -92,13 +90,35 @@ function playAudio(base64Audio) {
     }
 
     function addChatLine(label, text) {
-      chat.innerHTML += "<p><b>" + label + "</b> " + escapeHtml(text) + "</p>";
+      chat.innerHTML += `<p><b>${label}</b> ${escapeHtml(text)}</p>`;
       chat.scrollTop = chat.scrollHeight;
     }
 
-    async function sendMessage() {
-      const message = inputBox.value.trim();
+    function stopAudio() {
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+      }
+    }
+
+    function playAudio(base64Audio) {
+      stopAudio();
+      currentAudio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+      currentAudio.play().catch((error) => {
+        statusBox.textContent = "Audio play error: " + error.message;
+      });
+    }
+
+    async function sendMessage(messageOverride = null) {
+      if (isSending) return;
+
+      const message = (messageOverride ?? inputBox.value).trim();
       if (!message) return;
+
+      isSending = true;
+      sendButton.disabled = true;
+      micButton.disabled = true;
 
       addChatLine("You:", message);
       inputBox.value = "";
@@ -110,7 +130,7 @@ function playAudio(base64Audio) {
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ message: message })
+          body: JSON.stringify({ message })
         });
 
         const data = await response.json();
@@ -121,48 +141,43 @@ function playAudio(base64Audio) {
           return;
         }
 
-const reply = data.reply || "No reply generated.";
-addChatLine("Nana:", reply);
+        const reply = data.reply || "No reply generated.";
+        addChatLine("Nana:", reply);
 
-if (data.audio) {
-  playAudio(data.audio);
-}
-
-statusBox.textContent = "Nana replied.";
+        if (data.audio) {
+          statusBox.textContent = "Nana is speaking...";
+          playAudio(data.audio);
+        } else {
+          statusBox.textContent = "Nana replied.";
+        }
       } catch (error) {
         addChatLine("Error:", error.message);
         statusBox.textContent = "Network error.";
+      } finally {
+        isSending = false;
+        sendButton.disabled = false;
+        micButton.disabled = false;
       }
     }
 
+    sendButton.addEventListener("click", function () {
+      sendMessage();
+    });
 
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
-      utterance.rate = 0.85;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-
-      window.speechSynthesis.speak(utterance);
-    }
-
-    function stopSpeaking() {
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-    }
-
-    sendButton.addEventListener("click", sendMessage);
-    stopVoiceButton.addEventListener("click", stopSpeaking);
-
-    inputBox.addEventListener("keydown", function(event) {
+    inputBox.addEventListener("keydown", function (event) {
       if (event.key === "Enter") {
         sendMessage();
       }
     });
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    stopVoiceButton.addEventListener("click", function () {
+      stopAudio();
+      statusBox.textContent = "Voice stopped.";
+    });
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
     let recognition = null;
 
     if (SpeechRecognition) {
@@ -171,29 +186,31 @@ statusBox.textContent = "Nana replied.";
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
-      recognition.onstart = function() {
+      recognition.onstart = function () {
         statusBox.textContent = "Listening...";
       };
 
-      recognition.onresult = function(event) {
+      recognition.onresult = function (event) {
         const transcript = event.results[0][0].transcript;
-        inputBox.value = transcript;
         statusBox.textContent = "Heard: " + transcript;
-        sendMessage();
+        sendMessage(transcript);
       };
 
-      recognition.onerror = function(event) {
+      recognition.onerror = function (event) {
         statusBox.textContent = "Mic error: " + event.error;
       };
 
-      recognition.onend = function() {
+      recognition.onend = function () {
         if (statusBox.textContent === "Listening...") {
           statusBox.textContent = "Stopped listening.";
         }
       };
 
-      micButton.addEventListener("click", function() {
-        stopSpeaking();
+      micButton.addEventListener("click", function () {
+        if (isSending) return;
+
+        stopAudio();
+
         try {
           recognition.start();
           statusBox.textContent = "Trying to listen...";

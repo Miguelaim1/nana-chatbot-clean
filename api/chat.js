@@ -6,7 +6,7 @@ export default async function handler(req, res) {
 
     const { message } = req.body || {};
 
-    if (!message) {
+    if (!message || !message.trim()) {
       return res.status(400).json({ error: "No message provided" });
     }
 
@@ -44,13 +44,14 @@ VERY IMPORTANT RULES:
 - Do NOT speak Japanese
 - Give short responses only
 - Encourage the student to talk
-- Use only 1–2 short sentences.`
+- Use only 1-2 short sentences.`
           },
           {
             role: "user",
             content: message
           }
-        ]
+        ],
+        temperature: 0.7
       })
     });
 
@@ -75,7 +76,8 @@ VERY IMPORTANT RULES:
       body: JSON.stringify({
         model: "gpt-4o-mini-tts",
         voice: "verse",
-        input: textReply
+        input: textReply,
+        format: "mp3"
       })
     });
 
