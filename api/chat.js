@@ -62,9 +62,27 @@ VERY IMPORTANT RULES:
       });
     }
 
-    return res.status(200).json({
-      reply: data.choices?.[0]?.message?.content || "No reply generated."
-    });
+const textReply = data.choices?.[0]?.message?.content || "No reply.";
+
+const audioResponse = await fetch("https://api.openai.com/v1/audio/speech", {
+  method: "POST",
+  headers: {
+    "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    model: "gpt-4o-mini-tts",
+    voice: "alloy",
+    input: textReply
+  })
+});
+
+const audioBuffer = await audioResponse.arrayBuffer();
+const audioBase64 = Buffer.from(audioBuffer).toString("base64");
+
+return res.status(200).json({
+  reply: textReply,
+  audio: audioBase64
   } catch (error) {
     return res.status(500).json({
       error: "Server error",
