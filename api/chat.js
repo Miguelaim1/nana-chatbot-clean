@@ -74,7 +74,7 @@ VERY IMPORTANT RULES:
       },
       body: JSON.stringify({
         model: "gpt-4o-mini-tts",
-        voice: "alloy",
+        voice: "verse",
         input: textReply
       })
     });
