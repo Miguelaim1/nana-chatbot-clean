@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nana Chatbot</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 16px;
+      line-height: 1.5;
+    }
+
+    #chat {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 250px;
+      margin-bottom: 12px;
+      background: #fafafa;
+      overflow-y: auto;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    input {
+      flex: 1;
+      min-width: 240px;
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 10px 14px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #status {
+      color: #555;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    p {
+      margin: 8px 0;
+    }
+  </style>
+</head>
+<body>
+  <h2>TEST VERSION 2 🌸</h2>
+  <p>Speak in simple English. Nana will answer in short English.</p>
+
+  <div id="chat"></div>
+
+  <div class="row">
+    <input id="input" type="text" placeholder="Type here..." />
+    <button id="sendButton">Send</button>
+  </div>
+
+  <div class="row">
+    <button id="micButton">🎤 Start speaking</button>
+    <button id="stopVoiceButton">🔇 Stop voice</button>
+  </div>
+
+  <div id="status">Ready.</div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const inputBox = document.getElementById("input");
+    const statusBox = document.getElementById("status");
+    const sendButton = document.getElementById("sendButton");
+    const micButton = document.getElementById("micButton");
+    const stopVoiceButton = document.getElementById("stopVoiceButton");
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function addChatLine(label, text) {
+      chat.innerHTML += "<p><b>" + label + "</b> " + escapeHtml(text) + "</p>";
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const message = inputBox.value.trim();
+      if (!message) return;
+
+      addChatLine("You:", message);
+      inputBox.value = "";
+      statusBox.textContent = "Thinking...";
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ message: message })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          addChatLine("Error:", data.error || "Unknown error");
+          statusBox.textContent = "Error.";
+          return;
+        }
+
+        const reply = data.reply || "No reply generated.";
+        addChatLine("Nana:", reply);
+        speakText(reply);
+        statusBox.textContent = "Nana replied.";
+      } catch (error) {
+        addChatLine("Error:", error.message);
+        statusBox.textContent = "Network error.";
+      }
+    }
+
+    function speakText(text) {
+      if (!("speechSynthesis" in window)) {
+        statusBox.textContent = "Text-to-speech not supported.";
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+      utterance.rate = 0.85;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function stopSpeaking() {
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    sendButton.addEventListener("click", sendMessage);
+    stopVoiceButton.addEventListener("click", stopSpeaking);
+
+    inputBox.addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        sendMessage();
+      }
+    });
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = function() {
+        statusBox.textContent = "Listening...";
+      };
+
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        inputBox.value = transcript;
+        statusBox.textContent = "Heard: " + transcript;
+        sendMessage();
+      };
+
+      recognition.onerror = function(event) {
+        statusBox.textContent = "Mic error: " + event.error;
+      };
+
+      recognition.onend = function() {
+        if (statusBox.textContent === "Listening...") {
+          statusBox.textContent = "Stopped listening.";
+        }
+      };
+
+      micButton.addEventListener("click", function() {
+        stopSpeaking();
+        try {
+          recognition.start();
+          statusBox.textContent = "Trying to listen...";
+        } catch (error) {
+          statusBox.textContent = "Mic start error: " + error.message;
+        }
+      });
+    } else {
+      micButton.disabled = true;
+      statusBox.textContent = "Speech recognition is not supported in this browser. Try Chrome.";
+    }
+  </script>
+</body>
+</html>
